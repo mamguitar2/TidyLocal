@@ -1,33 +1,57 @@
-# TidyLocal — milestones 1–5
+# TidyLocal
 
-A local-only file review dashboard. Scanning and suggested organization are read-only until you explicitly choose an action and confirm the complete path list. The app binds to `127.0.0.1`; disk numbers come from `shutil.disk_usage('/')`.
+TidyLocal is a local-only macOS file review and organization app. It scans only locations you select, summarizes storage and exact duplicates, and suggests safe file moves. Nothing is moved or sent to a service without an explicit user action. The web app binds to `127.0.0.1` and keeps scan data on the Mac.
 
-## Requirements and macOS setup
+## Quick start (macOS)
 
-TidyLocal is intended for macOS and requires Python 3.10 or newer. From a clone of this repository, run once:
+Requires Python 3.10 or newer. Clone the repository, create a virtual environment, and install runtime dependencies:
 
 ```sh
+git clone https://github.com/mamguitar2/TidyLocal.git
+cd TidyLocal
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ```
 
-For development and tests, install the additional test dependencies and run the suite:
+Launch by double-clicking **Open TidyLocal.command**, or run `.venv/bin/python launch.py` from Terminal. Open `http://127.0.0.1:8000`. Stop the server with Ctrl-C. To use another port, set `TIDYLOCAL_PORT` before launching. The app never starts a scan or file action automatically. Opening `templates/index.html` directly with a `file://` URL only displays a static file; it cannot start the backend. macOS may ask for folder access when you explicitly start a scan.
+
+## Usage
+
+1. Select the approved locations (Downloads, Desktop, Documents) and click **Scan**.
+2. In **Organize**, choose destination folders, then review files with a clear organizing suggestion. Uncertain files are omitted from the action list.
+3. In **Duplicates**, review exact content matches and explicitly choose whether to keep, trash, or leave copies.
+4. Move actions ask for confirmation. Trash is reversible through macOS Trash; ordinary moves can be undone when the source and destination still match the safety checks.
+
+## Development and tests
+
+From a fresh checkout, install the development dependencies and run the test suite with this exact command:
 
 ```sh
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m pytest
 ```
 
-After setup, launch by double-clicking **Open TidyLocal.command** in this project folder. It starts the existing local Python server and opens the dashboard in your browser. If macOS blocks the first launch, Control-click the command file and choose **Open**. To put a shortcut on your Desktop, select the command file in Finder and choose **File → Make Alias**, then move the alias to your Desktop.
+The suite uses pytest temporary directories for filesystem tests. Contributor checks (also run in CI):
 
-You can also launch from Terminal with `.venv/bin/python launch.py`. Stop the server with Ctrl-C in its Terminal window. Optional port override: `TIDYLOCAL_PORT=8080 .venv/bin/python launch.py`. The launcher checks for the project virtual environment and dependencies and prints setup instructions if they are missing. It never starts a scan or file action automatically. Opening `templates/index.html` directly with a `file://` URL only displays a static file; it cannot start the Python backend. The dashboard binds to `127.0.0.1`. macOS may ask for folder access the first time you explicitly start a scan; no scan occurs before you choose locations and click Scan.
+```sh
+.venv/bin/ruff check .
+.venv/bin/ruff format --check .
+.venv/bin/mypy
+.venv/bin/python -m pytest --cov --cov-report=term-missing
+```
+
+Runtime and development dependencies use bounded version ranges in `requirements.txt` and `requirements-dev.txt`; these files are **not lockfiles**, so pip may resolve newer compatible releases over time. GitHub Actions validates fresh dependency resolution on macOS/Python 3.10 and 3.12.
+
+## Limitations
+
+TidyLocal is macOS-first; Finder reveal and application metadata are macOS-only. It does not permanently delete files, overwrite destinations, uninstall apps, or automatically restore Trash contents. File moves fail closed if the operating system cannot provide an exclusive no-overwrite rename. Organizer suggestions are conservative: uncertain items stay untouched. Activity logs are local but not encrypted. The optional Ollama integration is off by default and contacts only a loopback endpoint.
 
 ## Privacy and scope
 
 - Scanning starts only after you click Scan; Desktop is preselected as a starting point, and you can change the approved locations first. The server accepts only Downloads, Desktop, and Documents identifiers; it accepts no browser-supplied paths.
 - Scans enumerate regular files only, skip symlink files/directories and `.app` bundles, and stay under resolved approved roots. Permission failures are reported without aborting the full scan.
 - Scanning and organizer previews do not change files. Each organizer move requires its own button click and confirmation. Sources must be present in the latest scan, match saved file identity, be regular non-symlink files, and remain inside approved roots. App/project/system paths are protected.
-- Organizer suggestions use filenames, extensions, and bounded local text extraction (UTF-8 text, RTF, HTML, DOCX, and ODT). No file contents are sent to an AI or network service. Categories are Taxes, Finances, Career, and Personal (Music, Bad Caddy Apparel Co, Rent, Power of Attorney, Wedding). Existing matching/alias folders are reused before any new directory is created. Ambiguous items are marked Needs Review and hidden from the default move list; already-organized items are also hidden by default. Both can be shown with review filters. Destinations stay under one of the selected approved roots. Existing matching folders are reused across selected roots before a new destination is proposed. Moves create needed category folders only after an explicit click, preserve names, use exclusive OS rename primitives, and never overwrite. Existing destinations fail safely; unsupported systems fail closed. Each move is logged and can be undone with Undo last move, subject to file identity and destination checks. Create-folder accepts one safe name. Finder reveal is macOS-only. Trash uses `send2trash`; if unavailable it fails safely. Trash restoration is manual in Finder. Undo uses unique operation IDs for recorded moves and created folders; it rechecks file identity/destination conflicts and removes only the same still-empty folder created by the app. Non-empty folders and changed files are skipped.
+- Organizer suggestions use filenames, extensions, and bounded local text extraction (UTF-8 text, RTF, HTML, DOCX, and ODT). No file contents are sent to an AI or network service. Categories are Taxes, Finances, Career, and Personal (Music, Bad Caddy Apparel Co, Rent, Power of Attorney, Wedding). Matching existing destination folders are reused. Ambiguous items and already-organized files are omitted from the action list. Destinations stay under approved scan roots. Moves preserve names, use exclusive OS rename primitives, and never overwrite. Newly created empty folders are cleaned up if a category move fails; completed moves are logged and can be undone subject to identity and destination checks. Create-folder accepts one safe name. Finder reveal is macOS-only. Trash uses `send2trash`; if unavailable it fails safely. Trash restoration is manual in Finder. Undo uses unique operation IDs and removes only the same still-empty folder created by the app.
 - Activity records are local JSONL under `~/.tidylocal/activity.jsonl` and excluded from Git. No permanent delete or overwrite operation exists.
 - Exact duplicates are size-filtered then SHA-256 hashed; estimated savings are logical bytes and can overstate space reclaimed on APFS, with clones, compression, or hard links.
 - Scans run in background jobs with status and cancellation endpoints. Mutating scan-start/cancel POSTs require loopback Host and matching Origin checks.
@@ -39,11 +63,7 @@ You can also launch from Terminal with `.venv/bin/python launch.py`. Stop the se
 
 ## Architecture
 
-`app.py` exposes FastAPI routes and disk metrics; `scanner.py` contains read-only scan primitives; `organizer.py` classifies names, file types, and locally readable text into conservative category suggestions. The vanilla frontend keeps an Overview, Organize, and Duplicates & age view. Local charts summarize storage by file type, top-level folders, and duplicate copies by type. Organize is a two-step flow: choose destination folders, then review files with a clear organizing action. Uncertain files are kept out of that action list. A ChatGPT Atlas installer can be moved to Trash without uninstalling an app. Duplicate groups offer three explicit choices: leave copies in place, keep one and Trash the rest, or Trash all. File types are inferred locally from extensions; operating-system metadata such as `.DS_Store` and AppleDouble sidecars are excluded from reports and organizing suggestions. Moves occur only after an individual review and confirmation; uncertain files remain untouched until manually classified. Tests cover disk metrics, demo-folder isolation, scan classification, duplicate hashing, symlink/bundle exclusion, whitelist/origin validation, and job status.
-
-## Limitations and next milestones
-
-All five milestones are implemented within the constraints above. The application is intentionally local-only; it does not offer permanent deletion, overwrite, uninstall, AI-driven actions, or automatic Trash undo. Safe exclusive move support depends on OS primitives and deliberately fails closed on unsupported platforms. Activity logs are local and not encrypted; protect your account/device accordingly. The demo endpoint still creates placeholders in a temporary directory when explicitly called.
+`app.py` exposes FastAPI routes and disk metrics; `scanner.py` contains read-only scan primitives; `organizer.py` classifies names, file types, and locally readable text into conservative category suggestions. The vanilla frontend keeps an Overview, Organize, and Duplicates & age view. Local charts summarize storage by file type, top-level folders, and duplicate copies by type. Organize is a two-step flow: choose destination folders, then review files with a clear organizing action. Uncertain files are kept out of that action list. A ChatGPT Atlas installer can be moved to Trash without uninstalling an app. Duplicate groups offer three explicit choices: leave copies in place, keep one and Trash the rest, or Trash all. File types are inferred locally from extensions; operating-system metadata such as `.DS_Store` and AppleDouble sidecars are excluded from reports and organizing suggestions. Moves occur only after an individual review and confirmation; uncertain files remain untouched until manually classified. Tests cover disk metrics, demo-folder isolation, scan classification, duplicate hashing, symlink/bundle exclusion, whitelist/origin validation, job status, failed-move cleanup, and approved-root confinement.
 
 ## License
 

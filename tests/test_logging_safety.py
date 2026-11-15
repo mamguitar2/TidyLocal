@@ -1,5 +1,4 @@
 import json
-import os
 import threading
 
 import operations
@@ -24,6 +23,7 @@ def test_hash_observes_cancellation(tmp_path):
 
 def test_undo_move_rolls_back_when_history_append_fails(tmp_path, monkeypatch):
     import uuid
+
     import undo
 
     home = tmp_path / "home"
@@ -36,9 +36,20 @@ def test_undo_move_rolls_back_when_history_append_fails(tmp_path, monkeypatch):
     expected = operations.identity(original)
     operations.exclusive_rename(original, moved)
     log = tmp_path / "activity.jsonl"
-    operations.append_log(log, {"operation_id": uuid.uuid4().hex, "action": "move", "success": True,
-                                "source": str(original), "destination": str(moved), "expected": expected})
-    monkeypatch.setattr(undo, "append_log", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk full")))
+    operations.append_log(
+        log,
+        {
+            "operation_id": uuid.uuid4().hex,
+            "action": "move",
+            "success": True,
+            "source": str(original),
+            "destination": str(moved),
+            "expected": expected,
+        },
+    )
+    monkeypatch.setattr(
+        undo, "append_log", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk full"))
+    )
 
     result = undo.undo_latest(log, operations.roots_for(home))
     assert not result["results"][0]["success"]

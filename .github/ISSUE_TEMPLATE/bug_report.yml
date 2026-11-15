@@ -1,0 +1,36 @@
+name: Bug report
+description: Report a reproducible TidyLocal problem.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Share only sanitized paths and logs. Do not include private filenames, file contents, or credentials.
+  - type: input
+    id: summary
+    attributes:
+      label: What happened?
+      placeholder: A short description
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Use temporary or sample files where possible.
+      placeholder: "1. ...\n2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: macOS and Python versions
+      placeholder: macOS version; Python version
+    validations:
+      required: true

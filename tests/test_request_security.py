@@ -6,12 +6,18 @@ import app
 
 
 def make_request(headers):
-    return Request({
-        "type": "http", "method": "GET", "path": "/api/activity",
-        "headers": [(key.lower().encode(), value.encode()) for key, value in headers.items()],
-        "query_string": b"", "server": ("127.0.0.1", 8000),
-        "client": ("127.0.0.1", 12345), "scheme": "http",
-    })
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/activity",
+            "headers": [(key.lower().encode(), value.encode()) for key, value in headers.items()],
+            "query_string": b"",
+            "server": ("127.0.0.1", 8000),
+            "client": ("127.0.0.1", 12345),
+            "scheme": "http",
+        }
+    )
 
 
 def test_local_request_rejects_foreign_origin():

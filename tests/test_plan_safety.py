@@ -29,8 +29,13 @@ def test_move_contract_uses_existing_folder_and_explicit_alternate(tmp_path):
     assert source.read_text() == "source fixture"
     assert occupied.read_text() == "keep fixture"
 
-    moved = operations.move_into_folder(source, destination, operations.identity(source), roots,
-                                        alternate_name="report-reviewed.txt")
+    moved = operations.move_into_folder(
+        source,
+        destination,
+        operations.identity(source),
+        roots,
+        alternate_name="report-reviewed.txt",
+    )
     assert moved == str(destination / "report-reviewed.txt")
     assert Path(moved).read_text() == "source fixture"
     assert occupied.read_text() == "keep fixture"
@@ -54,9 +59,21 @@ def test_plan_creates_only_approved_category_and_folder_undo(tmp_path, monkeypat
     with __import__("pytest").raises(operations.OperationError):
         app._ensure_plan_folder(str(tmp_path / "outside" / "x.txt"), roots, repo)
 
-    moved = operations.apply_move(source, folder / source.name, operations.identity(source), roots, repo)
-    operations.append_log(log, {"timestamp": "fixture", "operation_id": uuid.uuid4().hex, "action": "move",
-        "source": str(source), "destination": moved, "expected": operations.identity(Path(moved)), "success": True})
+    moved = operations.apply_move(
+        source, folder / source.name, operations.identity(source), roots, repo
+    )
+    operations.append_log(
+        log,
+        {
+            "timestamp": "fixture",
+            "operation_id": uuid.uuid4().hex,
+            "action": "move",
+            "source": str(source),
+            "destination": moved,
+            "expected": operations.identity(Path(moved)),
+            "success": True,
+        },
+    )
     rows = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
     assert [row["action"] for row in rows] == ["create-folder", "move"]
     assert all(row["operation_id"] for row in rows)
@@ -75,5 +92,7 @@ def test_folder_contract_rejects_nonexistent_destination(tmp_path):
     source = root / "a.txt"
     source.write_text("fixture")
     with __import__("pytest").raises(operations.OperationError, match="existing approved folder"):
-        operations.move_into_folder(source, root / "missing", operations.identity(source), operations.roots_for(home))
+        operations.move_into_folder(
+            source, root / "missing", operations.identity(source), operations.roots_for(home)
+        )
     assert source.read_text() == "fixture"

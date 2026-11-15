@@ -1,10 +1,12 @@
 """Local-only file organization suggestions based on names, types, and bounded text."""
+
 from __future__ import annotations
 
 import os
 import re
 import stat
 import zipfile
+from collections.abc import Mapping, Sequence
 from difflib import SequenceMatcher
 from html.parser import HTMLParser
 from pathlib import Path
@@ -15,24 +17,157 @@ PERSONAL_SUBFOLDERS = ("Music", "Bad Caddy Apparel Co", "Rent", "Power of Attorn
 
 # Terms are intentionally explicit. Ambiguous or unrecognized files stay for review.
 KEYWORDS = {
-    "Taxes": ("tax return", "tax form", "taxes", "tax", "irs", "1040", "w2", "w 2", "1099", "1098", "wage and tax", "federal return"),
-    "Finances": ("bank statement", "credit card", "invoice", "receipt", "utility bill", "rent payment", "mortgage", "checking account", "savings account", "budget", "financial statement", "statement", "paystub", "pay stub", "investment"),
-    "Career": ("resume", "résumé", "curriculum vitae", "cover letter", "job application", "job description", "offer letter", "work experience", "portfolio", "performance review", "employment", "linkedin", "certification"),
-    "Personal/Music": ("music", "song", "album", "playlist", "lyrics", "audio", "recording", "track list", "midi"),
-    "Personal/Bad Caddy Apparel Co": ("bad caddy", "bad caddy apparel", "apparel co", "caddy apparel", "shirt order", "merch order"),
-    "Personal/Rent": ("lease agreement", "rental agreement", "rent", "landlord", "tenant", "security deposit", "lease"),
+    "Taxes": (
+        "tax return",
+        "tax form",
+        "taxes",
+        "tax",
+        "irs",
+        "1040",
+        "w2",
+        "w 2",
+        "1099",
+        "1098",
+        "wage and tax",
+        "federal return",
+    ),
+    "Finances": (
+        "bank statement",
+        "credit card",
+        "invoice",
+        "receipt",
+        "utility bill",
+        "rent payment",
+        "mortgage",
+        "checking account",
+        "savings account",
+        "budget",
+        "financial statement",
+        "statement",
+        "paystub",
+        "pay stub",
+        "investment",
+    ),
+    "Career": (
+        "resume",
+        "résumé",
+        "curriculum vitae",
+        "cover letter",
+        "job application",
+        "job description",
+        "offer letter",
+        "work experience",
+        "portfolio",
+        "performance review",
+        "employment",
+        "linkedin",
+        "certification",
+    ),
+    "Personal/Music": (
+        "music",
+        "song",
+        "album",
+        "playlist",
+        "lyrics",
+        "audio",
+        "recording",
+        "track list",
+        "midi",
+    ),
+    "Personal/Bad Caddy Apparel Co": (
+        "bad caddy",
+        "bad caddy apparel",
+        "apparel co",
+        "caddy apparel",
+        "shirt order",
+        "merch order",
+    ),
+    "Personal/Rent": (
+        "lease agreement",
+        "rental agreement",
+        "rent",
+        "landlord",
+        "tenant",
+        "security deposit",
+        "lease",
+    ),
     "Personal/Power of Attorney": ("power of attorney", "attorney in fact", "durable power", "poa"),
-    "Personal/Wedding": ("wedding", "wedding planner", "wedding venue", "guest list", "rsvp", "bride", "groom"),
-    "Personal": ("personal", "family", "vacation", "hobby", "recipe", "medical records", "family photos", "personal notes"),
+    "Personal/Wedding": (
+        "wedding",
+        "wedding planner",
+        "wedding venue",
+        "guest list",
+        "rsvp",
+        "bride",
+        "groom",
+    ),
+    "Personal": (
+        "personal",
+        "family",
+        "vacation",
+        "hobby",
+        "recipe",
+        "medical records",
+        "family photos",
+        "personal notes",
+    ),
 }
 
-READABLE_SUFFIXES = {".txt", ".md", ".csv", ".tsv", ".rtf", ".html", ".htm", ".xml", ".json", ".yaml", ".yml", ".docx", ".odt"}
+READABLE_SUFFIXES = {
+    ".txt",
+    ".md",
+    ".csv",
+    ".tsv",
+    ".rtf",
+    ".html",
+    ".htm",
+    ".xml",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".docx",
+    ".odt",
+}
 AUDIO_SUFFIXES = {".mp3", ".m4a", ".wav", ".flac", ".aac", ".ogg", ".mid", ".midi"}
 NON_DOCUMENT_CONTEXT_SUFFIXES = {
-    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".tif", ".tiff", ".bmp", ".svg",
-    ".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", *AUDIO_SUFFIXES,
-    ".py", ".js", ".ts", ".html", ".css", ".java", ".c", ".cpp", ".go", ".rs", ".sh",
-    ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar", ".dmg", ".pkg", ".iso",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".heic",
+    ".tif",
+    ".tiff",
+    ".bmp",
+    ".svg",
+    ".mp4",
+    ".mov",
+    ".mkv",
+    ".avi",
+    ".webm",
+    ".m4v",
+    *AUDIO_SUFFIXES,
+    ".py",
+    ".js",
+    ".ts",
+    ".html",
+    ".css",
+    ".java",
+    ".c",
+    ".cpp",
+    ".go",
+    ".rs",
+    ".sh",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".7z",
+    ".rar",
+    ".dmg",
+    ".pkg",
+    ".iso",
 }
 SYSTEM_METADATA_NAMES = {".ds_store", ".localized", "thumbs.db", "desktop.ini"}
 
@@ -43,7 +178,15 @@ def is_system_metadata(path: Path) -> bool:
     return name in SYSTEM_METADATA_NAMES or name.startswith("._")
 
 
-PROTECTED_PATH_PARTS = {".git", ".venv", "venv", "node_modules", "Library", "System", "Applications"}
+PROTECTED_PATH_PARTS = {
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "Library",
+    "System",
+    "Applications",
+}
 
 
 def is_protected_path(path: Path) -> bool:
@@ -52,10 +195,24 @@ def is_protected_path(path: Path) -> bool:
 
 
 GIT_HOOK_NAMES = {
-    "applypatch-msg", "commit-msg", "post-applypatch", "post-checkout", "post-commit",
-    "post-merge", "post-receive", "post-rewrite", "pre-applypatch", "pre-commit",
-    "pre-merge-commit", "prepare-commit-msg", "pre-push", "pre-rebase", "pre-receive",
-    "push-to-checkout", "sendemail-validate", "update",
+    "applypatch-msg",
+    "commit-msg",
+    "post-applypatch",
+    "post-checkout",
+    "post-commit",
+    "post-merge",
+    "post-receive",
+    "post-rewrite",
+    "pre-applypatch",
+    "pre-commit",
+    "pre-merge-commit",
+    "prepare-commit-msg",
+    "pre-push",
+    "pre-rebase",
+    "pre-receive",
+    "push-to-checkout",
+    "sendemail-validate",
+    "update",
 }
 
 
@@ -66,23 +223,56 @@ def is_non_actionable_artifact(path: Path) -> bool:
         return True
     if any(part.casefold() in {".git", "node_modules", ".vscode"} for part in path.parts):
         return True
-    return (len(stem) >= 12 and stem.isdigit()) or (len(stem) >= 16 and re.fullmatch(r"[0-9a-f]+", stem) is not None)
+    return (len(stem) >= 12 and stem.isdigit()) or (
+        len(stem) >= 16 and re.fullmatch(r"[0-9a-f]+", stem) is not None
+    )
 
 
 FILE_TYPE_NAMES = {
-    ".pdf": "PDF document", ".doc": "Word document", ".docx": "Word document",
-    ".odt": "OpenDocument text", ".xls": "Spreadsheet", ".xlsx": "Spreadsheet",
-    ".csv": "CSV spreadsheet", ".ppt": "Presentation", ".pptx": "Presentation",
-    ".jpg": "Photo", ".jpeg": "Photo", ".png": "Photo", ".heic": "Photo",
-    ".webp": "Photo", ".tif": "Photo", ".tiff": "Photo", ".bmp": "Photo",
-    ".gif": "Animated image", ".svg": "Vector image", ".mp4": "Video", ".mov": "Video",
-    ".mkv": "Video", ".avi": "Video", ".webm": "Video", ".m4v": "Video",
-    ".mp3": "Audio", ".m4a": "Audio",
-    ".wav": "Audio", ".flac": "Audio", ".zip": "Archive", ".tar": "Archive",
-    ".gz": "Archive", ".dmg": "Disk image", ".pkg": "Installer", ".py": "Python code",
-    ".js": "JavaScript code", ".ts": "TypeScript code", ".html": "HTML document",
-    ".css": "Stylesheet", ".json": "JSON data", ".xml": "XML data",
-    ".swift": "Swift code", ".rb": "Ruby code", ".ipynb": "Jupyter notebook",
+    ".pdf": "PDF document",
+    ".doc": "Word document",
+    ".docx": "Word document",
+    ".odt": "OpenDocument text",
+    ".xls": "Spreadsheet",
+    ".xlsx": "Spreadsheet",
+    ".csv": "CSV spreadsheet",
+    ".ppt": "Presentation",
+    ".pptx": "Presentation",
+    ".jpg": "Photo",
+    ".jpeg": "Photo",
+    ".png": "Photo",
+    ".heic": "Photo",
+    ".webp": "Photo",
+    ".tif": "Photo",
+    ".tiff": "Photo",
+    ".bmp": "Photo",
+    ".gif": "Animated image",
+    ".svg": "Vector image",
+    ".mp4": "Video",
+    ".mov": "Video",
+    ".mkv": "Video",
+    ".avi": "Video",
+    ".webm": "Video",
+    ".m4v": "Video",
+    ".mp3": "Audio",
+    ".m4a": "Audio",
+    ".wav": "Audio",
+    ".flac": "Audio",
+    ".zip": "Archive",
+    ".tar": "Archive",
+    ".gz": "Archive",
+    ".dmg": "Disk image",
+    ".pkg": "Installer",
+    ".py": "Python code",
+    ".js": "JavaScript code",
+    ".ts": "TypeScript code",
+    ".html": "HTML document",
+    ".css": "Stylesheet",
+    ".json": "JSON data",
+    ".xml": "XML data",
+    ".swift": "Swift code",
+    ".rb": "Ruby code",
+    ".ipynb": "Jupyter notebook",
 }
 
 
@@ -100,12 +290,37 @@ def describe_file_type(path: Path) -> str:
 
 FOLDER_ALIASES = {
     "Taxes": {
-        "tax", "taxes", "tax files", "tax folder", "taxes folder", "tax documents",
-        "tax docs", "tax returns", "tax return", "tax paperwork", "tax papers",
-        "tax records", "tax documentation", "income tax",
+        "tax",
+        "taxes",
+        "tax files",
+        "tax folder",
+        "taxes folder",
+        "tax documents",
+        "tax docs",
+        "tax returns",
+        "tax return",
+        "tax paperwork",
+        "tax papers",
+        "tax records",
+        "tax documentation",
+        "income tax",
     },
     "Finances": {"finance", "finances", "financial", "financial records"},
-    "Career": {"career", "careers", "career folder", "career files", "career documents", "my career", "work", "professional", "professional documents", "job search", "resume", "resumes", "cv"},
+    "Career": {
+        "career",
+        "careers",
+        "career folder",
+        "career files",
+        "career documents",
+        "my career",
+        "work",
+        "professional",
+        "professional documents",
+        "job search",
+        "resume",
+        "resumes",
+        "cv",
+    },
     "Personal": {"personal", "personal files"},
     "Music": {"music", "audio", "songs"},
     "Bad Caddy Apparel Co": {"bad caddy", "bad caddy apparel", "bad caddy apparel co"},
@@ -114,8 +329,14 @@ FOLDER_ALIASES = {
     "Wedding": {"wedding", "weddings", "wedding folder"},
 }
 ORGANIZER_DESTINATIONS = (
-    "Taxes", "Finances", "Career", "Personal", "Personal/Music",
-    "Personal/Bad Caddy Apparel Co", "Personal/Rent", "Personal/Power of Attorney",
+    "Taxes",
+    "Finances",
+    "Career",
+    "Personal",
+    "Personal/Music",
+    "Personal/Bad Caddy Apparel Co",
+    "Personal/Rent",
+    "Personal/Power of Attorney",
     "Personal/Wedding",
 )
 
@@ -148,7 +369,9 @@ def read_local_text(path: Path) -> str:
                         return ""
                     raw = archive.read(member)[: MAX_TEXT_BYTES * 8]
                 root = ElementTree.fromstring(raw)
-                return " ".join(node.text or "" for node in root.iter() if node.tag.endswith("}t"))[:MAX_TEXT_BYTES]
+                return " ".join(node.text or "" for node in root.iter() if node.tag.endswith("}t"))[
+                    :MAX_TEXT_BYTES
+                ]
             raw = stream.read(MAX_TEXT_BYTES)
         text = raw.decode("utf-8", errors="replace")
         if suffix in {".html", ".htm"}:
@@ -158,7 +381,14 @@ def read_local_text(path: Path) -> str:
         elif suffix == ".rtf":
             text = re.sub(r"\\'[0-9a-fA-F]{2}|\\[a-zA-Z]+-?\d* ?|[{}]", " ", text)
         return text
-    except (OSError, RuntimeError, ValueError, zipfile.BadZipFile, KeyError, ElementTree.ParseError):
+    except (
+        OSError,
+        RuntimeError,
+        ValueError,
+        zipfile.BadZipFile,
+        KeyError,
+        ElementTree.ParseError,
+    ):
         return ""
 
 
@@ -170,7 +400,9 @@ def _folder_names_match(normalized: str, aliases: set[str]) -> bool:
     for alias in aliases:
         if normalized == alias or SequenceMatcher(None, normalized, alias).ratio() >= 0.90:
             return True
-        if len(alias) >= 5 and (normalized.startswith(f"{alias} ") or normalized.endswith(f" {alias}")):
+        if len(alias) >= 5 and (
+            normalized.startswith(f"{alias} ") or normalized.endswith(f" {alias}")
+        ):
             return True
     return False
 
@@ -189,13 +421,19 @@ def find_similar_folder(parent: Path, name: str) -> Path | None:
     """Find an existing directory whose normalized name matches a known alias."""
     if not parent.is_dir():
         return None
-    aliases = {_normalized(name), *(_normalized(alias) for alias in FOLDER_ALIASES.get(name, set()))}
+    aliases = {
+        _normalized(name),
+        *(_normalized(alias) for alias in FOLDER_ALIASES.get(name, set())),
+    }
     candidates = []
     try:
         for child in parent.iterdir():
             if not child.is_symlink() and child.is_dir():
                 normalized = _normalized(child.name)
-                ratio = max((SequenceMatcher(None, normalized, alias).ratio() for alias in aliases), default=0)
+                ratio = max(
+                    (SequenceMatcher(None, normalized, alias).ratio() for alias in aliases),
+                    default=0,
+                )
                 if _folder_names_match(normalized, aliases):
                     candidates.append((ratio, child))
     except OSError:
@@ -209,9 +447,15 @@ def find_similar_folder(parent: Path, name: str) -> Path | None:
 def _folder_destination_context(path: Path, location_root: Path) -> tuple[str, str] | None:
     """Recognize known destination names in the file's current folder path."""
     destinations = {
-        "Taxes": "Taxes", "Finances": "Finances", "Career": "Career", "Personal": "Personal",
-        "Music": "Personal/Music", "Bad Caddy Apparel Co": "Personal/Bad Caddy Apparel Co",
-        "Rent": "Personal/Rent", "Power of Attorney": "Personal/Power of Attorney", "Wedding": "Personal/Wedding",
+        "Taxes": "Taxes",
+        "Finances": "Finances",
+        "Career": "Career",
+        "Personal": "Personal",
+        "Music": "Personal/Music",
+        "Bad Caddy Apparel Co": "Personal/Bad Caddy Apparel Co",
+        "Rent": "Personal/Rent",
+        "Power of Attorney": "Personal/Power of Attorney",
+        "Wedding": "Personal/Wedding",
     }
     try:
         folders = path.parent.relative_to(location_root).parts
@@ -220,7 +464,10 @@ def _folder_destination_context(path: Path, location_root: Path) -> tuple[str, s
     for folder in reversed(folders):
         normalized = _normalized(folder)
         for name, destination in destinations.items():
-            aliases = {_normalized(name), *(_normalized(alias) for alias in FOLDER_ALIASES.get(name, set()))}
+            aliases = {
+                _normalized(name),
+                *(_normalized(alias) for alias in FOLDER_ALIASES.get(name, set())),
+            }
             if _folder_names_match(normalized, aliases):
                 return destination, folder
     return None
@@ -238,7 +485,9 @@ def resolve_destination_folder(root: Path, category: str, subcategory: str = "")
     return category_folder
 
 
-def suggest_file(path: Path, *, location_root: Path, destination_options: dict[str, str] | None = None) -> dict:
+def suggest_file(
+    path: Path, *, location_root: Path, destination_options: dict[str, str] | None = None
+) -> dict:
     """Classify conservatively and return a reviewable, editable destination proposal."""
     filename = path.name
     suffix = path.suffix.lower()
@@ -289,7 +538,7 @@ def suggest_file(path: Path, *, location_root: Path, destination_options: dict[s
         ambiguous = len(ordered) > 1 and ordered[0][1] - ordered[1][1] < 1.5
     confidence = min(0.98, 0.52 + score * 0.075)
     needs_review = chosen is None or ambiguous or confidence < 0.70
-    category, separator, subcategory = chosen.partition("/") if chosen else ("", "", "")
+    category, _, subcategory = chosen.partition("/") if chosen else ("", "", "")
     if protected:
         category, subcategory = "", ""
         needs_review = True
@@ -300,11 +549,17 @@ def suggest_file(path: Path, *, location_root: Path, destination_options: dict[s
         confidence = min(confidence, 0.55)
         reason = "No clear category match; review the file before moving it."
     else:
+        assert chosen is not None
         filename_hits = _matches(path.stem, KEYWORDS[chosen])
         content_hits = _matches(content, KEYWORDS[chosen])
         if folder_context and folder_context[0] == chosen:
             reason = f"Current folder “{folder_context[1]}” matches this destination; keeping the file here."
-        elif suffix in AUDIO_SUFFIXES and chosen == "Personal/Music" and not filename_hits and not content_hits:
+        elif (
+            suffix in AUDIO_SUFFIXES
+            and chosen == "Personal/Music"
+            and not filename_hits
+            and not content_hits
+        ):
             reason = f"Audio file type ({suffix}) suggests Music."
         elif filename_hits:
             reason = f"Filename matches {filename_hits[0]!r}."
@@ -318,7 +573,7 @@ def suggest_file(path: Path, *, location_root: Path, destination_options: dict[s
     if category and not destination:
         destination = str(resolve_destination_folder(location_root, category, subcategory))
     suggested_folder = Path(destination) if destination else None
-    already_organized = bool(suggested_folder) and (
+    already_organized = suggested_folder is not None and (
         path.parent.is_relative_to(suggested_folder)
         or bool(folder_context and folder_context[0] == chosen)
     )
@@ -332,7 +587,9 @@ def suggest_file(path: Path, *, location_root: Path, destination_options: dict[s
         "subcategory": subcategory,
         "destination": destination,
         "destination_options": destination_options or {},
-        "existing_destinations": {key: Path(value).is_dir() for key, value in (destination_options or {}).items()},
+        "existing_destinations": {
+            key: Path(value).is_dir() for key, value in (destination_options or {}).items()
+        },
         "confidence": round(confidence, 2),
         "needs_review": needs_review,
         "protected": protected,
@@ -352,8 +609,10 @@ def _is_obsolete_chatgpt_atlas_installer(path: Path) -> bool:
 
 
 def organization_suggestions(
-    files: list[dict], roots: dict[str, Path], selected_locations: tuple[str, ...] | list[str] | None = None,
-) -> list[dict]:
+    files: Sequence[Mapping[str, object]],
+    roots: Mapping[str, Path],
+    selected_locations: Sequence[str] | None = None,
+) -> list[dict[str, object]]:
     """Suggest paths using existing folders in the selected roots before proposing new ones."""
     search_roots = [roots[name] for name in (selected_locations or roots.keys()) if name in roots]
     options_by_location = {}
@@ -363,38 +622,56 @@ def organization_suggestions(
             category, _, subcategory = key.partition("/")
             candidate = resolve_destination_folder(root, category, subcategory)
             if not candidate.is_dir():
-                candidate = next((
-                    match for other_root in search_roots if other_root != root
-                    for match in [resolve_destination_folder(other_root, category, subcategory)]
-                    if match.is_dir()
-                ), candidate)
+                candidate = next(
+                    (
+                        match
+                        for other_root in search_roots
+                        if other_root != root
+                        for match in [resolve_destination_folder(other_root, category, subcategory)]
+                        if match.is_dir()
+                    ),
+                    candidate,
+                )
             options[key] = str(candidate)
         options_by_location[location] = options
 
-    suggestions = []
+    suggestions: list[dict[str, object]] = []
     for item in files:
-        root = roots.get(item.get("location"))
-        if root is None:
+        item_location = item.get("location")
+        path_value = item.get("path")
+        if not isinstance(item_location, str) or not isinstance(path_value, str):
             continue
-        source = Path(item["path"])
-        if (is_system_metadata(source) or is_non_actionable_artifact(source)
-                or item.get("category") == "code"):
+        item_root = roots.get(item_location)
+        if item_root is None:
+            continue
+        source = Path(path_value)
+        if (
+            is_system_metadata(source)
+            or is_non_actionable_artifact(source)
+            or item.get("category") == "code"
+        ):
             continue
         suggestion = suggest_file(
-            source, location_root=root,
-            destination_options=options_by_location[item["location"]],
+            source,
+            location_root=item_root,
+            destination_options=options_by_location[item_location],
         )
-        suggestion["file_category"] = item.get("category", "other")
+        file_category_value = item.get("category", "other")
+        suggestion["file_category"] = (
+            file_category_value if isinstance(file_category_value, str) else "other"
+        )
         if _is_obsolete_chatgpt_atlas_installer(source):
-            suggestion.update({
-                "recommended_action": "trash",
-                "category": "",
-                "subcategory": "",
-                "destination": "",
-                "needs_review": False,
-                "already_organized": False,
-                "reason": "You noted ChatGPT Atlas is no longer needed. This installer can go to Trash; that will not uninstall an installed app.",
-            })
+            suggestion.update(
+                {
+                    "recommended_action": "trash",
+                    "category": "",
+                    "subcategory": "",
+                    "destination": "",
+                    "needs_review": False,
+                    "already_organized": False,
+                    "reason": "You noted ChatGPT Atlas is no longer needed. This installer can go to Trash; that will not uninstall an installed app.",
+                }
+            )
         if suggestion.get("already_organized"):
             continue
         suggestion["size"] = item.get("size", 0)

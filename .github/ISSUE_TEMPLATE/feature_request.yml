@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest a focused improvement to TidyLocal.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Please describe the user need. Avoid sharing private file paths or file contents.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or safety considerations
+    validations:
+      required: false

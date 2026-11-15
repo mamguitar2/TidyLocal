@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import app
 
 
@@ -15,9 +13,11 @@ def test_disk_metrics_uses_system_usage(monkeypatch):
 
 def test_demo_files_are_confined_to_temporary_directory(monkeypatch, tmp_path):
     demo_root = tmp_path / "tidylocal-demo-test"
+
     def make_demo_root(prefix):
         demo_root.mkdir()
         return str(demo_root)
+
     monkeypatch.setattr(app.tempfile, "mkdtemp", make_demo_root)
     result = app.create_demo_files()
     assert result == demo_root

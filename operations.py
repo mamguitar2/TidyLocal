@@ -1,5 +1,7 @@
 """Guarded filesystem actions. Every path is revalidated immediately before use."""
+
 from __future__ import annotations
+
 import ctypes
 import json
 import os
@@ -7,7 +9,12 @@ import platform
 import subprocess
 from pathlib import Path
 
-from organizer import find_similar_folder, is_protected_path, is_system_metadata, resolve_destination_folder
+from organizer import (
+    find_similar_folder,
+    is_protected_path,
+    is_system_metadata,
+    resolve_destination_folder,
+)
 
 
 class OperationError(ValueError):
@@ -47,12 +54,24 @@ def validate_path(raw, roots, *, must_exist=True, repo=None):
 
 
 def safe_folder_name(name):
-    return bool(name) and name not in {".", ".."} and Path(name).name == name and "/" not in name and chr(92) not in name and not any(ord(character) < 32 for character in name)
+    return (
+        bool(name)
+        and name not in {".", ".."}
+        and Path(name).name == name
+        and "/" not in name
+        and chr(92) not in name
+        and not any(ord(character) < 32 for character in name)
+    )
 
 
 def identity(path):
     info = path.stat(follow_symlinks=False)
-    return {"size": info.st_size, "mtime_ns": info.st_mtime_ns, "device": info.st_dev, "inode": info.st_ino}
+    return {
+        "size": info.st_size,
+        "mtime_ns": info.st_mtime_ns,
+        "device": info.st_dev,
+        "inode": info.st_ino,
+    }
 
 
 def exclusive_rename(source, destination):
@@ -108,11 +127,15 @@ def move_into_folder(source, folder, expected, roots, repo=None, alternate_name=
     return apply_move(source, str(folder / name), expected, roots, repo)
 
 
-def move_to_category(source, category, subcategory, location, expected, roots, repo=None, search_roots=None):
+def move_to_category(
+    source, category, subcategory, location, expected, roots, repo=None, search_roots=None
+):
     """Move a scanned file to a whitelisted category under its approved source root."""
     categories = {"Taxes", "Finances", "Career", "Personal"}
     personal_subfolders = {"Music", "Bad Caddy Apparel Co", "Rent", "Power of Attorney", "Wedding"}
-    if category not in categories or (subcategory and (category != "Personal" or subcategory not in personal_subfolders)):
+    if category not in categories or (
+        subcategory and (category != "Personal" or subcategory not in personal_subfolders)
+    ):
         raise OperationError("Choose one of the approved organizer destinations")
     root = roots.get(location)
     if root is None:
@@ -126,38 +149,53 @@ def move_to_category(source, category, subcategory, location, expected, roots, r
         raise OperationError("Source changed since it was reviewed")
     validate_path(root, roots, repo=repo)
 
+    created_directories: list[Path] = []
+
     def ensure_directory(parent: Path, name: str) -> Path:
         existing = find_similar_folder(parent, name)
         folder = existing or (parent / name)
         validate_path(folder.parent, roots, repo=repo)
         if not folder.exists() and not folder.is_symlink():
             folder.mkdir()
+            created_directories.append(folder)
         validated = validate_path(folder, roots, repo=repo)
         if not validated.is_dir():
             raise OperationError("Organizer destination is not a folder")
         return validated
 
-    candidate_roots = [root]
-    for other_root in (search_roots or {}).values():
-        if other_root != root and other_root not in candidate_roots:
-            candidate_roots.append(other_root)
-    destination_dir = None
-    for candidate_root in candidate_roots:
-        existing = resolve_destination_folder(candidate_root, category, subcategory)
-        if existing.is_dir():
-            destination_dir = validate_path(existing, roots, repo=repo)
-            break
-    if destination_dir is None:
-        direct_personal_folder = find_similar_folder(root, subcategory) if subcategory else None
-        if direct_personal_folder:
-            destination_dir = validate_path(direct_personal_folder, roots, repo=repo)
-        else:
-            category_folder = ensure_directory(root, category)
-            destination_dir = ensure_directory(category_folder, subcategory) if subcategory else category_folder
-    destination = destination_dir / source.name
-    if destination == source:
-        raise OperationError("File is already in that folder")
-    return apply_move(source, str(destination), expected, roots, repo)
+    try:
+        candidate_roots = [root]
+        for other_root in (search_roots or {}).values():
+            if other_root != root and other_root not in candidate_roots:
+                candidate_roots.append(other_root)
+        destination_dir = None
+        for candidate_root in candidate_roots:
+            existing = resolve_destination_folder(candidate_root, category, subcategory)
+            if existing.is_dir():
+                destination_dir = validate_path(existing, roots, repo=repo)
+                break
+        if destination_dir is None:
+            direct_personal_folder = find_similar_folder(root, subcategory) if subcategory else None
+            if direct_personal_folder:
+                destination_dir = validate_path(direct_personal_folder, roots, repo=repo)
+            else:
+                category_folder = ensure_directory(root, category)
+                destination_dir = (
+                    ensure_directory(category_folder, subcategory)
+                    if subcategory
+                    else category_folder
+                )
+        destination = destination_dir / source.name
+        if destination == source:
+            raise OperationError("File is already in that folder")
+        return apply_move(source, str(destination), expected, roots, repo)
+    except Exception:
+        for folder in reversed(created_directories):
+            try:
+                folder.rmdir()
+            except OSError:
+                pass
+        raise
 
 
 def open_file(path):
@@ -165,7 +203,9 @@ def open_file(path):
     if platform.system() != "Darwin":
         return {"success": False, "message": "Opening files this way is available only on macOS."}
     try:
-        subprocess.run(["/usr/bin/open", str(path)], check=True, shell=False, timeout=10, capture_output=True)
+        subprocess.run(
+            ["/usr/bin/open", str(path)], check=True, shell=False, timeout=10, capture_output=True
+        )
         return {"success": True, "message": "Opened with the default application."}
     except (OSError, subprocess.SubprocessError) as exc:
         return {"success": False, "message": f"Could not open file: {exc}"}
@@ -175,7 +215,13 @@ def reveal(path):
     if platform.system() != "Darwin":
         return {"success": False, "message": "Finder reveal is available only on macOS."}
     try:
-        subprocess.run(["/usr/bin/open", "-R", str(path)], check=True, shell=False, timeout=10, capture_output=True)
+        subprocess.run(
+            ["/usr/bin/open", "-R", str(path)],
+            check=True,
+            shell=False,
+            timeout=10,
+            capture_output=True,
+        )
         return {"success": True, "message": "Revealed in Finder."}
     except (OSError, subprocess.SubprocessError) as exc:
         return {"success": False, "message": f"Finder reveal failed: {exc}"}
