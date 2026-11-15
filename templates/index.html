@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f6f2">
+  <title>TidyLocal · Local file organizer</title>
+  <link rel="stylesheet" href="/static/duplicates.css?v=4">
+  <link rel="stylesheet" href="/static/highlights.css?v=3">
+  <link rel="stylesheet" href="/static/finder.css?v=1">
+  <link rel="stylesheet" href="/static/organization.css?v=3">
+  <link rel="stylesheet" href="/static/organizer-ui.css?v=11">
+  <link rel="stylesheet" href="/static/dashboard.css?v=21">
+  <link rel="stylesheet" href="/static/organize-actions.css?v=2">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="TidyLocal home"><span class="brand-mark">t</span><span>TidyLocal</span></a>
+      <span class="local-label"><i></i> PRIVATE · ON THIS MAC</span>
+    </header>
+
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">LOCAL STORAGE REPORT</p>
+      <h1>See what’s taking<br><em>up your space.</em></h1>
+      <p class="subtitle">A clear overview of file types, duplicates, and the largest files—then organize one file at a time.</p>
+    </section>
+
+    <section class="scan-panel" aria-labelledby="scan-heading">
+      <div>
+        <p class="eyebrow">CHOOSE LOCATIONS</p>
+        <h2 id="scan-heading">Choose folders to check</h2>
+        <p class="hint">Start with Desktop; scans include nested folders. Finder Recents is a virtual view, not a real folder, so scanning actual locations avoids counting the same file twice.</p>
+      </div>
+      <div class="location-options">
+        <label><input type="checkbox" name="location" value="Downloads"> Downloads</label>
+        <label><input type="checkbox" name="location" value="Desktop" checked> Desktop (including subfolders)</label>
+        <label><input type="checkbox" name="location" value="Documents"> Documents</label>
+      </div>
+      <div class="scan-actions">
+        <button id="scan" class="primary">Scan selected folders</button>
+        <button id="cancel-scan" class="secondary" disabled>Cancel</button>
+      </div>
+      <div id="scan-progress" class="scan-progress" role="progressbar" aria-label="Scan loading" aria-valuetext="Loading" hidden><span></span></div>
+      <p id="scan-status" role="status" aria-live="polite">Choose one or more folders to get started.</p>
+    </section>
+
+    <section id="results" class="results" aria-live="polite" hidden>
+      <div class="results-heading">
+        <div><p class="eyebrow">SCAN RESULTS</p><h2>Your storage report</h2></div>
+        <div class="summary"><strong id="scanned-size">—</strong><span>total scanned</span></div>
+      </div>
+      <div class="overview-metrics" aria-label="Scan summary">
+        <article><span>FILES SCANNED</span><strong id="metric-files">0</strong></article>
+        <article><span>DUPLICATE GROUPS</span><strong id="metric-duplicates">0</strong></article>
+        <article><span>POSSIBLE SAVINGS</span><strong id="metric-savings">0 B</strong></article>
+      </div>
+      <div class="report-navigation-divider" aria-hidden="true"><span>YOUR STORAGE TOOLS</span></div>
+      <div class="report-tabs" role="tablist" aria-label="Report views">
+        <button id="storage-tab" class="report-tab active" role="tab" aria-selected="true" aria-controls="storage-panel">Overview</button>
+        <button id="organization-tab" class="report-tab" role="tab" aria-selected="false" aria-controls="organization-panel" tabindex="-1">Organize</button>
+        <button id="signals-tab" class="report-tab" role="tab" aria-selected="false" aria-controls="signals-panel" tabindex="-1">Duplicates &amp; Age</button>
+      </div>
+      <section id="storage-panel" role="tabpanel" aria-labelledby="storage-tab">
+      <section id="disk-space" class="disk-space" aria-label="Mac disk space"><div><p class="eyebrow">THIS MAC</p><h2>Free space</h2><p id="disk-space-status" role="status">Checking available storage…</p></div><strong id="disk-space-free">—</strong><div class="disk-space-track"><i id="disk-space-fill"></i></div></section>
+      <p id="scan-summary" class="scan-summary"></p>
+      <section class="report-section chart-section" aria-labelledby="types-heading">
+        <div class="report-title"><h3 id="types-heading">What’s using your storage</h3><span>By file type</span></div>
+        <div class="type-chart-layout">
+          <canvas id="type-chart" width="340" height="250" role="img" aria-label="Storage by file type"></canvas>
+          <div id="type-legend" class="type-legend"></div>
+        </div>
+        <p class="chart-note">File types are identified locally. OS-generated metadata such as <code>.DS_Store</code> is excluded from the report.</p>
+      </section>
+      <div class="overview-detail-grid">
+        <section class="report-section" aria-labelledby="folders-heading">
+          <div class="report-title"><h3 id="folders-heading">Folders using the most space</h3><span>Top-level folders in scanned locations</span></div>
+          <div id="folder-chart" class="folder-chart"></div>
+        </section>
+        <section class="report-section" aria-labelledby="largest-heading">
+          <div class="report-title"><h3 id="largest-heading">Largest files</h3><span id="largest-count"></span></div>
+          <div id="largest-list" class="largest-list"></div>
+        </section>
+      </div>
+      </section>
+      <section id="signals-panel" role="tabpanel" aria-labelledby="signals-tab" hidden>
+        <div class="signal-legend" aria-label="File status colors">
+          <div><i class="signal-dot duplicate-dot"></i><span><strong>Red</strong> · exact duplicate copies</span></div>
+          <div><i class="signal-dot old-dot"></i><span><strong>Blue</strong> · not opened in 50+ days, when macOS provides that date</span></div>
+        </div>
+        <section class="report-section duplicate-overview" aria-labelledby="duplicates-heading">
+          <div class="report-title"><h3 id="duplicates-heading">Duplicate copies</h3><span class="summary"><strong id="duplicate-count">0</strong> groups</span></div>
+          <div class="duplicate-chart-card"><div class="organizer-chart-heading"><span>EXTRA DUPLICATE COPIES BY TYPE</span><strong id="duplicate-copy-total">0 copies</strong></div><div id="duplicate-chart" class="organizer-category-chart" role="group" aria-label="Extra duplicate copies by file type"></div><p id="duplicate-chart-note"></p></div><p class="hint duplicate-method">A duplicate is reported only when file size and SHA-256 content hash match. Names—including suffixes like “1” or “2”—do not determine the match.</p>
+          <div class="duplicate-browser"><div id="duplicate-list" class="duplicate-list" role="list" aria-label="Duplicate groups"></div><aside id="duplicate-details" class="detail-side-panel" aria-label="Selected duplicate details"><p class="organizer-detail-empty">Choose a duplicate group to see its files and actions.</p></aside></div>
+        </section>
+        <section class="report-section" aria-labelledby="old-heading">
+          <div class="report-title"><h3 id="old-heading">Older files</h3><span id="old-count"></span></div>
+          <p class="hint">Only files with a macOS “last opened” date are listed here. This is not based on modified dates.</p>
+          <div class="age-browser"><div id="old-list" class="old-list" role="list" aria-label="Older files"></div><aside id="age-details" class="detail-side-panel" aria-label="Selected older file details"><p class="organizer-detail-empty">Choose an older file to see its details.</p></aside></div>
+        </section>
+        <p class="footnote">Duplicate savings are estimated logical bytes; APFS clones, compression, or hard links may reduce actual space reclaimed. Moving copies to Trash is reversible from macOS Trash.</p>
+      </section>
+      <section id="organization-panel" role="tabpanel" aria-labelledby="organization-tab" hidden>
+        <div class="organizer-intro">
+          <div><p class="eyebrow">FILE ORGANIZER</p><h3>Sort by type. Choose where it goes.</h3></div>
+          <button id="undo-organize" class="secondary" type="button">Undo last action</button>
+        </div>
+        <p class="hint">Choose which destination folders you want available, then review files and decide what to move.</p>
+        <div id="organizer-step-one">
+        <div class="organizer-step-heading"><span>STEP 1</span><h3>Choose destination folders</h3><p>Select folders for your destination menus, or add a new folder.</p></div>
+        <p id="folder-choices-note" class="folder-choices-note"></p>
+        <details class="destination-settings" open>
+          <summary>Manage destination folders</summary>
+          <div class="destination-settings-tools"><button id="destination-select-all" class="secondary" type="button">Select all</button><button id="destination-select-none" class="secondary" type="button">Clear all</button><button id="destination-add-folder" class="secondary" type="button">Add folder</button><span id="destination-selection-count" role="status"></span></div>
+          <div id="destination-folder-checks" class="destination-folder-checks" aria-label="Available destination folders"></div>
+        </details>
+        <details class="folder-create-panel" aria-labelledby="create-folder-heading">
+          <summary id="create-folder-heading">Create a new folder by name</summary>
+          <p class="folder-create-hint">Choose where it belongs. Similar existing folders are protected from duplicates.</p>
+          <label>Parent folder<select id="create-folder-parent" aria-label="Parent folder"></select></label>
+          <label>New folder name<input id="create-folder-name" maxlength="120" placeholder="e.g. Wedding" autocomplete="off"></label>
+          <button id="create-folder-button" class="secondary" type="button">Create folder</button>
+          <p id="create-folder-status" class="organizer-status" role="status" aria-live="polite"></p>
+        </details>
+        <button id="continue-organize" class="primary continue-organize" type="button">Continue to Step 2</button>
+        </div>
+        <div id="organizer-step-two" hidden>
+        <div class="organizer-step-heading organizer-step-two-heading"><div><span>STEP 2</span><h3>What needs action</h3><p>Only files with a clear organizing destination are counted and listed. Files needing review are left out.</p></div><button id="back-to-step-one" class="secondary" type="button">Back to Step 1</button></div>
+        <section class="organizer-chart" aria-label="Files needing action by type"><div class="organizer-chart-heading"><span>FILES NEEDING ACTION</span><strong id="organizer-total-count">0</strong></div><div id="organizer-category-chart" class="organizer-category-chart"></div></section>
+        <p id="organizer-summary" class="organizer-summary" role="status"></p>
+        <p id="organizer-status" class="organizer-status" role="status" aria-live="polite"></p>
+        <div class="organizer-browser"><div id="organization-list" class="organization-list" role="list" aria-label="Scanned files"></div><aside id="organizer-details" class="organizer-detail-panel" aria-label="Selected file actions"><p class="organizer-detail-empty">Choose a file to see its details and available actions.</p></aside></div>
+        </div>
+      </section>
+    </section>
+    <footer>Made for your Mac. Your files stay on your Mac.</footer>
+  </main>
+  <script src="/static/charts.js?v=5"></script>
+  <script src="/static/organize-ui.js?v=26"></script>
+  <script src="/static/duplicates.js?v=28"></script>
+</body>
+</html>
