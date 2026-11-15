@@ -1,6 +1,17 @@
 # TidyLocal
 
+<p align="center"><img src="assets/tidylocal-mark.png" alt="TidyLocal folder and safety-check logo" width="112"></p>
+
+[![CI](https://github.com/mamguitar2/TidyLocal/actions/workflows/tests.yml/badge.svg)](https://github.com/mamguitar2/TidyLocal/actions/workflows/tests.yml)
+[![RepoGrade](https://www.repo-grade.com/api/badge/mamguitar2/tidylocal)](https://www.repo-grade.com/report/mamguitar2/tidylocal)
+
 TidyLocal is a local-only macOS file review and organization app. It scans only locations you select, summarizes storage and exact duplicates, and suggests safe file moves. Nothing is moved or sent to a service without an explicit user action. The web app binds to `127.0.0.1` and keeps scan data on the Mac.
+
+## Preview
+
+![TidyLocal dashboard showing a completed scan and exact duplicate group](assets/demo-dashboard.png)
+
+This screenshot uses synthetic text files in an isolated temporary home directory; no personal folders or files were scanned. TidyLocal is intentionally local-only, so there is no public hosted instance. The screenshot and [quick-start steps](#quick-start-macos) are the safe preview.
 
 ## Quick start (macOS)
 
@@ -10,7 +21,7 @@ Requires Python 3.10 or newer. Clone the repository, create a virtual environmen
 git clone https://github.com/mamguitar2/TidyLocal.git
 cd TidyLocal
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -r requirements.lock
 ```
 
 Launch by double-clicking **Open TidyLocal.command**, or run `.venv/bin/python launch.py` from Terminal. Open `http://127.0.0.1:8000`. Stop the server with Ctrl-C. To use another port, set `TIDYLOCAL_PORT` before launching. The app never starts a scan or file action automatically. Opening `templates/index.html` directly with a `file://` URL only displays a static file; it cannot start the backend. macOS may ask for folder access when you explicitly start a scan.
@@ -24,23 +35,23 @@ Launch by double-clicking **Open TidyLocal.command**, or run `.venv/bin/python l
 
 ## Development and tests
 
-From a fresh checkout, install the development dependencies and run the test suite with this exact command:
+From a fresh checkout, install the locked development dependencies and run the suite with `make test`:
 
 ```sh
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m pytest
+.venv/bin/python -m pip install -r requirements-dev.lock
+make test
 ```
 
-The suite uses pytest temporary directories for filesystem tests. Contributor checks (also run in CI):
+The suite uses pytest temporary directories for filesystem tests. Run all contributor checks (also run in CI) with `make check` and `make test-coverage`.
+
+The bounded manifests `requirements.txt` and `requirements-dev.txt` describe allowed versions; the committed `requirements.lock` and `requirements-dev.lock` pin the full transitive dependency sets for repeatable installs. Regenerate both locks when changing the manifests:
 
 ```sh
-.venv/bin/ruff check .
-.venv/bin/ruff format --check .
-.venv/bin/mypy
-.venv/bin/python -m pytest --cov --cov-report=term-missing
+uv pip compile --universal --no-annotate requirements.txt -o requirements.lock
+uv pip compile --universal --no-annotate requirements-dev.txt -o requirements-dev.lock
 ```
 
-Runtime and development dependencies use bounded version ranges in `requirements.txt` and `requirements-dev.txt`; these files are **not lockfiles**, so pip may resolve newer compatible releases over time. GitHub Actions validates fresh dependency resolution on macOS/Python 3.10 and 3.12.
+GitHub Actions validates the locked install on macOS/Python 3.10 and 3.12.
 
 ## Limitations
 

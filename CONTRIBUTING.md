@@ -1,34 +1,39 @@
 # Contributing
 
-Thanks for helping make TidyLocal safer and easier to use. Keep changes focused, preserve existing behavior unless the issue explicitly asks for a change, and avoid adding abstractions or dependencies without a concrete need.
+Thanks for helping make TidyLocal safer and easier to use. Keep changes focused, preserve existing behavior unless an issue explicitly requests a behavior change, and prefer the smallest design that solves the actual problem. Avoid new abstractions, dependencies, or configuration knobs without a concrete use case.
 
-## Set up and verify
+## Set up the project
 
-Use Python 3.10 or newer. From the repository root:
+TidyLocal targets macOS and supports Python 3.10 or newer. From the repository root, create a virtual environment and install the committed development lock:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m pytest
-.venv/bin/ruff check .
-.venv/bin/ruff format --check .
-.venv/bin/mypy
-.venv/bin/python -m pytest --cov --cov-report=term-missing
+.venv/bin/python -m pip install -r requirements-dev.lock
 ```
 
-The filesystem tests must use `tmp_path` or another temporary directory. Never run tests or manual checks against a real Downloads, Desktop, Documents, or home directory. Mock Trash and platform-specific operations; do not use real user files as fixtures.
+Run the documented test target with `make test`. Before opening a pull request, run `make check` for lint, formatting, and type checking, then `make test-coverage` to see the coverage report. These are the same targets used by GitHub Actions. If you need to override the interpreter, use `make test PYTHON=/path/to/python`.
+
+The bounded `requirements.txt` and `requirements-dev.txt` files are source manifests; the `.lock` files pin their transitive versions. When dependencies change, regenerate both committed locks using the two `uv pip compile --universal --no-annotate ...` commands in the README. Review the complete lock diff and verify a clean install. Keep runtime libraries in `requirements.txt`; keep test and contributor tooling in `requirements-dev.txt`.
+
+## Project map
+
+`app.py` exposes the local FastAPI routes and coordinates scan-gated operations. `scanner.py` contains read-only traversal and duplicate detection. `organizer.py` creates conservative local suggestions, and `operations.py` / `undo.py` perform validated filesystem operations. `templates/` and `static/` contain the browser interface. Tests live under `tests/` and use pytest.
+
+## Code style and test expectations
+
+Follow the Ruff configuration in `pyproject.toml`; do not disable a rule just to make a check green. Keep types meaningful at operation and data boundaries. Add a focused regression test for a bug or safety change, not a placeholder assertion. Run the narrow test while iterating, then run the complete `make test` and `make check` before submitting. Coverage is reported in CI; it is a signal to test important behavior, not a reason to inflate counts with low-value tests.
+
+All filesystem fixtures and destructive-operation mocks must use `tmp_path` or another isolated temporary directory. Never run tests or manual checks against a real Downloads, Desktop, Documents, or home directory. Mock Trash, `open`, Spotlight, and other platform-specific integrations. Do not use real user files as fixtures. Tests must not require a network service or make changes outside their temporary sandbox.
 
 ## Safety expectations
 
-- Keep scanning and previews read-only.
-- Validate paths against approved roots and reject symlinks/path escapes.
-- Use exclusive no-overwrite moves; preserve sources on failure and clean up only empty folders created by the failed operation.
-- Recheck saved file identity before a mutation. Keep failures visible and fail closed when a safe OS primitive is unavailable.
-- Do not add permanent deletion, upload file contents, or make AI output authorize a filesystem action.
-- Avoid committing secrets, personal paths, real filenames, or file contents in fixtures, logs, and screenshots.
+- Keep scanning, previews, and suggestion generation read-only.
+- Validate paths against approved roots, reject symlinks and path escapes, and recheck saved file identity before each mutation.
+- Use exclusive no-overwrite moves. Preserve the source on failure, and clean up only empty directories created by the failed operation.
+- Keep failure messages visible and fail closed when a safe operating-system primitive is unavailable.
+- Do not add permanent deletion, upload file contents, or let AI output authorize a filesystem action.
+- Avoid committing secrets, personal paths, real filenames, private file contents, generated logs, or screenshots containing personal data.
 
-## Dependencies and pull requests
+## Pull requests
 
-Runtime and development requirements are bounded version ranges, not a fully pinned lockfile. Keep runtime dependencies in `requirements.txt` and tooling/test-only dependencies in `requirements-dev.txt`; explain new dependencies and verify a fresh install where practical.
-
-Open a pull request with a concise summary, the tests/checks you ran, and any compatibility or safety implications. Update user-facing documentation when setup, behavior, or limitations change. Do not include generated logs, virtual environments, or unrelated formatting changes.
+Open a pull request with a concise problem statement, implementation summary, commands run, and any compatibility or safety implications. Update the README when setup, user-visible behavior, privacy, or limitations change. Keep unrelated formatting and generated artifacts out of the change. Before submission, inspect `git diff --check`, review staged paths, and make sure no secret or machine-specific path is included.
