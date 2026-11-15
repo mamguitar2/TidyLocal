@@ -76,6 +76,63 @@ TidyLocal is macOS-first; Finder reveal and application metadata are macOS-only.
 
 `app.py` exposes FastAPI routes and disk metrics; `scanner.py` contains read-only scan primitives; `organizer.py` classifies names, file types, and locally readable text into conservative category suggestions. The vanilla frontend keeps an Overview, Organize, and Duplicates & age view. Local charts summarize storage by file type, top-level folders, and duplicate copies by type. Organize is a two-step flow: choose destination folders, then review files with a clear organizing action. Uncertain files are kept out of that action list. A ChatGPT Atlas installer can be moved to Trash without uninstalling an app. Duplicate groups offer three explicit choices: leave copies in place, keep one and Trash the rest, or Trash all. File types are inferred locally from extensions; operating-system metadata such as `.DS_Store` and AppleDouble sidecars are excluded from reports and organizing suggestions. Moves occur only after an individual review and confirmation; uncertain files remain untouched until manually classified. Tests cover disk metrics, demo-folder isolation, scan classification, duplicate hashing, symlink/bundle exclusion, whitelist/origin validation, job status, failed-move cleanup, and approved-root confinement.
 
+### Architecture diagram
+
+```mermaid
+flowchart TB
+    user[Mac user]
+
+    subgraph interface[Local interface]
+        html[Dashboard page<br/>templates/index.html]
+        ui[Dashboard UI<br/>static/app.js]
+        charts[Review charts<br/>static/charts.js]
+        organize[Organize review UI<br/>static/organize-ui.js]
+        duplicates[Duplicates and age UI<br/>static/duplicates.js]
+        html -. hosts .-> ui
+        ui --> charts
+        ui --> organize
+        ui --> duplicates
+    end
+
+    subgraph api[Local API and scan/review]
+        launcher[Local launcher<br/>launch.py]
+        app[Local API<br/>app.py]
+        scanner[Approved-location scanner<br/>scanner.py]
+        organizer[Suggestion and text classifier<br/>organizer.py]
+        launcher -->|starts server| app
+        app -->|starts scan| scanner
+        scanner -->|file descriptions| organizer
+    end
+
+    subgraph safe[Safe file actions]
+        operations[Guarded filesystem actions<br/>operations.py]
+        undo[Move and folder undo<br/>undo.py]
+        log[(Local activity log)]
+        operations -->|records| log
+        undo -->|reads history| log
+        undo -->|restores moves| operations
+    end
+
+    subgraph integrations[Optional local integrations]
+        applications[macOS app inventory<br/>applications.py]
+        ollama[Opt-in explanation helper<br/>ollama_local.py]
+        loopback[Loopback Ollama]
+        ollama -. metadata .-> loopback
+    end
+
+    user -->|launches| launcher
+    user -->|reviews| ui
+    ui -->|requests scans and file actions| app
+    organize -. requests organizing .-> app
+    duplicates -->|requests scan data| app
+    app -->|executes guarded actions| operations
+    app -->|requests undo| undo
+    app --> applications
+    app -. opt-in explanations .-> ollama
+```
+
+Solid arrows show runtime calls or data flow; dotted arrows indicate hosting or optional interactions. Ollama is disabled by default.
+
 ## License
 
 TidyLocal is licensed under the MIT License. See [LICENSE](LICENSE).
