@@ -22,13 +22,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: |
-            requirements*.txt
+            pyproject.toml
             requirements*.lock
       - name: Create project environment
         run: python -m venv .venv
       - name: Install locked development dependencies
         run: .venv/bin/python -m pip install -r requirements-dev.lock
-      - name: Lint, formatting, and type checks
-        run: make check
+      - name: Ruff lint
+        run: .venv/bin/python -m ruff check .
+      - name: Ruff format check
+        run: .venv/bin/python -m ruff format --check .
+      - name: Mypy type check
+        run: .venv/bin/python -m mypy
       - name: Tests and coverage
-        run: make test-coverage
+        run: .venv/bin/python -m pytest --cov --cov-report=term-missing

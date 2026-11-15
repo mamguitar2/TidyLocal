@@ -42,16 +42,16 @@ From a fresh checkout, install the locked development dependencies and run the s
 make test
 ```
 
-The suite uses pytest temporary directories for filesystem tests. Run all contributor checks (also run in CI) with `make check` and `make test-coverage`.
+The suite uses pytest temporary directories for filesystem tests. Run local checks with `make check` and `make test-coverage`; CI runs Ruff lint/format, mypy, and coverage-enabled pytest as explicit steps.
 
-The bounded manifests `requirements.txt` and `requirements-dev.txt` describe allowed versions; the committed `requirements.lock` and `requirements-dev.lock` pin the full transitive dependency sets for repeatable installs. Regenerate both locks when changing the manifests:
+`pyproject.toml` is the canonical project and dependency manifest. `requirements.lock` and `requirements-dev.lock` are pip-compatible, universal locks with Python-version markers; they are resolved against the minimum supported Python version so Python 3.10 gets compatible packages. Regenerate both locks after changing dependencies:
 
 ```sh
-uv pip compile --universal --no-annotate requirements.txt -o requirements.lock
-uv pip compile --universal --no-annotate requirements-dev.txt -o requirements-dev.lock
+uv pip compile --universal --python-version 3.10 --no-annotate pyproject.toml -o requirements.lock
+uv pip compile --universal --python-version 3.10 --no-annotate --extra dev pyproject.toml -o requirements-dev.lock
 ```
 
-GitHub Actions validates the locked install on macOS/Python 3.10 and 3.12.
+Lock regeneration requires `uv` (on macOS, install it with `brew install uv`); normal users install the committed locks with pip and do not need uv. GitHub Actions validates the locked install on macOS/Python 3.10 and 3.12.
 
 ## Limitations
 

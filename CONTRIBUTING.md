@@ -11,9 +11,9 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.lock
 ```
 
-Run the documented test target with `make test`. Before opening a pull request, run `make check` for lint, formatting, and type checking, then `make test-coverage` to see the coverage report. These are the same targets used by GitHub Actions. If you need to override the interpreter, use `make test PYTHON=/path/to/python`.
+Run the documented test target with `make test`. Before opening a pull request, run `make check` for lint, formatting, and type checking, then `make test-coverage` to see the coverage report. CI runs these checks as explicit commands so each result is visible in the job. If you need to override the interpreter, use `make test PYTHON=/path/to/python`.
 
-The bounded `requirements.txt` and `requirements-dev.txt` files are source manifests; the `.lock` files pin their transitive versions. When dependencies change, regenerate both committed locks using the two `uv pip compile --universal --no-annotate ...` commands in the README. Review the complete lock diff and verify a clean install. Keep runtime libraries in `requirements.txt`; keep test and contributor tooling in `requirements-dev.txt`.
+`pyproject.toml` is the canonical dependency manifest: runtime libraries belong in `[project].dependencies`, while test and contributor tools belong in `[project.optional-dependencies].dev`. The committed `.lock` files pin transitive versions and contain markers for supported Python versions. When dependencies change, install uv (`brew install uv` on macOS) and regenerate both locks with the `uv pip compile --universal --python-version 3.10 ...` commands in the README. Review the full lock diff and test a fresh install on the lowest supported Python version; the lock must not select packages that dropped Python 3.10 support.
 
 ## Project map
 
